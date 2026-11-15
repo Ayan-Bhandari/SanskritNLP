@@ -1,0 +1,32 @@
+# Module index
+
+Each numbered module owns its implementation, scripts, notebooks, and
+module-specific documentation. Shared environment setup, data policy, and
+project conventions stay at the repository root.
+
+## Current modules
+
+| Module | Scope | Status |
+|---|---|---|
+| [Module 1: Text normalization](module_01_normalization/README.md) | Sanskrit Unicode/whitespace normalization, corpus preparation, and OCR correction research | Normalization complete for the pinned Sansar `default/train` split; OCR model pilot unsuccessful |
+
+## Adding a module
+
+Create a sibling directory such as `module_02_sentence_segmentation/` and use
+this structure:
+
+```text
+module_02_topic_name/
+  README.md
+  src/
+  scripts/
+  notebooks/
+  docs/
+```
+
+Document the objective, input/output contract, data sources, reproduction
+steps, evaluation, and limitations in that module's README. Keep shared
+dependencies in the root `requirements.txt` unless a module-specific
+environment becomes necessary. Store downloaded datasets, generated output,
+and checkpoints in the shared local-only root directories described in
+`docs/DATASETS.md`.
