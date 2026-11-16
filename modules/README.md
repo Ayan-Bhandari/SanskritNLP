@@ -9,11 +9,12 @@ project conventions stay at the repository root.
 | Module | Scope | Status |
 |---|---|---|
 | [Module 1: Text normalization](module_01_normalization/README.md) | Sanskrit Unicode/whitespace normalization, corpus preparation, and OCR correction research | Normalization complete for the pinned Sansar `default/train` split; OCR model pilot unsuccessful |
+| [Module 2: Tokenization](module_02_tokenization/README.md) | Compare character, whitespace, and subword token units for Sanskrit | Started: local split inspection; CPU only |
 
 ## Adding a module
 
-Create a sibling directory such as `module_02_sentence_segmentation/` and use
-this structure:
+For the next planned module, create a sibling directory such as
+`module_03_word_segmentation/` and use this structure:
 
 ```text
 module_02_topic_name/

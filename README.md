@@ -81,6 +81,9 @@ modules/                 Numbered, self-contained learning/research modules
     scripts/             Module 1 data and evaluation pipelines
     notebooks/           Exploratory corpus analysis
     docs/research/        Module 1 protocols, audits, and results
+  module_02_tokenization/
+    scripts/             Module 2 sample readiness and tokenizer work
+    docs/                Module 2 data and evaluation notes
 docs/SETUP.md            Shared environment setup and GPU notes
 docs/DATASETS.md         Shared data sources and local storage policy
 datasets/                Local-only raw and processed data (ignored by Git)
