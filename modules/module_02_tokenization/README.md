@@ -75,6 +75,29 @@ the ignored local `experiments/tokenization/` directory. See
 The package's official [documentation](https://google.github.io/sentencepiece/)
 describes SentencePiece's BPE and Unigram training and its Python interface.
 
+## Stage 4: full-corpus subword models
+
+The complete local Module 1 `default/train` corpus is used to fit byte-level
+BPE and Unigram models with an 8,192-entry target vocabulary. The script
+streams all 183 Parquet shards through Hugging Face Tokenizers; it does not
+create an intermediate text file or a second tokenized copy of the corpus.
+The tokenizer models and aggregate-only reports are written to ignored local
+`models/` and `experiments/` folders.
+
+Install dependencies with `python -m pip install -r requirements.txt`, then
+run from the repository root:
+
+```powershell
+python modules\module_02_tokenization\scripts\train_full_corpus_tokenizers.py --vocab-size 8192
+```
+
+The run fits each model on every row in the complete training split. It then
+reports in-corpus metrics and exact reconstruction on 5,000 deterministic,
+evenly spaced rows. These are not held-out accuracy or generalization results,
+because the tokenizer was fitted on the full split. See
+`docs/04_full_corpus_tokenizers.md` for the completed run and its limits.
+Tokenizer training is CPU work; a GPU is not used.
+
 ## GPU
 
 No GPU is needed for corpus inspection, whitespace/character baselines, or
