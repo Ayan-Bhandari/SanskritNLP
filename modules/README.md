@@ -9,7 +9,7 @@ project conventions stay at the repository root.
 | Module | Scope | Status |
 |---|---|---|
 | [Module 1: Text normalization](module_01_normalization/README.md) | Sanskrit Unicode/whitespace normalization, corpus preparation, and OCR correction research | Normalization complete for the pinned Sansar `default/train` split; OCR model pilot unsuccessful |
-| [Module 2: Tokenization](module_02_tokenization/README.md) | Compare character, whitespace, and subword token units for Sanskrit | Data audit and whitespace/code-point baselines complete; subword baseline next; CPU only so far |
+| [Module 2: Tokenization](module_02_tokenization/README.md) | Compare character, whitespace, and subword token units for Sanskrit | Data audit and whitespace/code-point/SentencePiece baselines complete; CPU only so far |
 
 ## Adding a module
 

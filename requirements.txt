@@ -1,8 +1,9 @@
-# Core tools for the Module 1 dataset-analysis notebook.
+# Core tools for corpus analysis, Module 1, and Module 2 tokenization.
 datasets>=3.0,<5.0
 notebook>=7.2,<8.0
 ipykernel>=6.29,<7.0
 pandas>=2.2,<4.0
 pyarrow>=21.0,<27.0
 rapidfuzz>=3.9,<4.0
+sentencepiece>=0.2.3,<0.3
 torch>=2.7,<3.0

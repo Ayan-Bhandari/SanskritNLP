@@ -20,8 +20,9 @@ Sanskrit word boundaries obscured by Sandhi; that is Module 3.
    Fitting a tokenizer vocabulary is light CPU work, not neural-model
    training.
 
-The candidates and metrics will be refined as experiments progress. No
-tokenizer package or new dependency has been added yet.
+The candidates and metrics will be refined as experiments progress. The
+module now uses the lightweight SentencePiece dependency for its BPE/Unigram
+comparison.
 
 ## Stage 1: data readiness
 
@@ -54,6 +55,25 @@ The initial results show why a subword candidate is worth evaluating:
 whitespace has high held-out OOV rates, while code points have a small
 vocabulary but much longer sequences and can split Devanagari combining
 marks. Neither baseline is selected as the final tokenizer.
+
+## Stage 3: subword comparison
+
+Install the added dependency with `pip install -r requirements.txt` if it is
+not already present, then run:
+
+```powershell
+python modules\module_02_tokenization\scripts\compare_sentencepiece_tokenizers.py
+```
+
+This trains BPE and Unigram vocabularies of 512 and 1,024 entries from the
+train split only. Validation and test are only used for reporting. The script
+keeps line breaks through an explicit marker and configures SentencePiece to
+use identity text normalization. Model files and aggregate metrics stay under
+the ignored local `experiments/tokenization/` directory. See
+`docs/03_sentencepiece_comparison.md` for results and interpretation.
+
+The package's official [documentation](https://google.github.io/sentencepiece/)
+describes SentencePiece's BPE and Unigram training and its Python interface.
 
 ## GPU
 
