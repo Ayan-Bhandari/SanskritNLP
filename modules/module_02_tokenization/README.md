@@ -20,10 +20,10 @@ Sanskrit word boundaries obscured by Sandhi; that is Module 3.
    Fitting a tokenizer vocabulary is light CPU work, not neural-model
    training.
 
-The candidates and metrics will be refined after the dataset readiness report.
-No tokenizer package or new dependency has been added yet.
+The candidates and metrics will be refined as experiments progress. No
+tokenizer package or new dependency has been added yet.
 
-## Current stage: data readiness
+## Stage 1: data readiness
 
 The initial audit uses the existing 4,997-row work-group split produced in
 Module 1. It does not download data or alter the source files. Run from the
@@ -35,8 +35,25 @@ python modules\module_02_tokenization\scripts\inspect_tokenization_sample.py
 
 The script writes aggregate-only results to
 `experiments/tokenization/module2_sample_audit.json`; no Sanskrit text is
-copied into that report. See `docs/01_data_readiness.md` for the recorded
-findings and the next stage.
+copied into that report. See `docs/01_data_readiness.md` for the findings.
+
+## Stage 2: baseline comparison
+
+Run the whitespace and Unicode-code-point baselines:
+
+```powershell
+python modules\module_02_tokenization\scripts\compare_baseline_tokenizers.py
+```
+
+The script counts vocabularies from train only and writes aggregate metrics to
+`experiments/tokenization/module2_baseline_tokenizers.json`. It preserves
+whitespace separators during the exact reconstruction check. Current findings
+are documented in `docs/02_baseline_tokenizers.md`.
+
+The initial results show why a subword candidate is worth evaluating:
+whitespace has high held-out OOV rates, while code points have a small
+vocabulary but much longer sequences and can split Devanagari combining
+marks. Neither baseline is selected as the final tokenizer.
 
 ## GPU
 
