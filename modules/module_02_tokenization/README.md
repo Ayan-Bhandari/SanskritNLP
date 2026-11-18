@@ -98,6 +98,23 @@ because the tokenizer was fitted on the full split. See
 `docs/04_full_corpus_tokenizers.md` for the completed run and its limits.
 Tokenizer training is CPU work; a GPU is not used.
 
+## Stage 5: tokenize the complete split
+
+The selected BPE tokenizer has now generated IDs for all 1,829,785 training
+rows. Run or resume the shard-based job with:
+
+```powershell
+python modules\module_02_tokenization\scripts\tokenize_full_corpus.py
+```
+
+To process a fixed number of new shards per session, use
+`--max-shards 10`, then rerun the same command on a later day. Completed
+shards are skipped using a revision- and model-checked progress manifest.
+Outputs are local under `datasets/tokenized/`; each Parquet shard contains
+`id`, `source_row_index`, `token_ids`, and `token_count`. Token IDs are stored
+as `uint16` and can be cast to `int64` when creating model tensors. See
+`docs/04_full_corpus_tokenizers.md` for the output totals and verification.
+
 ## GPU
 
 No GPU is needed for corpus inspection, whitespace/character baselines, or

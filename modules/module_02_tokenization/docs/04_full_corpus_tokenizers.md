@@ -69,6 +69,55 @@ The BPE model was fit in about 8.8 minutes and Unigram in about 28.2 minutes
 on this laptop's CPU. Each model reached the requested 8,192 entries. These
 durations are specific to this hardware and run.
 
+## Full BPE token-ID output
+
+After comparing both candidates, the lower-piece BPE model was selected for
+the full token-ID output. The complete normalized training split was encoded
+without truncating records:
+
+- Rows tokenized: 1,829,785 of 1,829,785
+- Source shards and output shards: 183 and 183
+- Token-ID instances: 1,548,964,280
+- Mean: 846.53 token IDs per row
+- Maximum row length: 1,561,968 token IDs
+- Stored output: 1,568,421,783 bytes (about 1.57 GB) in Parquet
+- Storage type: unsigned 16-bit IDs; cast to signed 64-bit before creating
+  tensors for most neural frameworks
+- Sum of shard processing times: 56.5 minutes on this CPU run
+
+Output is at
+`datasets/tokenized/sansar_default_train_bpe8192/`. Each shard preserves the
+source `id` and its zero-based `source_row_index`, then stores `token_ids` and
+`token_count`. The normalized text is not duplicated; the original remains in
+the processed Module 1 dataset. `progress.json` records the source revision,
+tokenizer hash, completed shards, row totals, and token totals.
+
+The output has 183/183 files and its row and token totals match the source
+manifest and completion checkpoint. Exact decoding was reconfirmed on rows
+from four different shards and on the longest tokenized row. This spot check
+does not imply that a separate per-row decode pass was performed across the
+entire corpus; reversibility is also supported by byte-level BPE's complete
+byte alphabet.
+
+To reproduce or resume from the repository root:
+
+```powershell
+python modules\module_02_tokenization\scripts\tokenize_full_corpus.py
+```
+
+Optionally limit a session to a fixed number of new shards, then rerun later:
+
+```powershell
+python modules\module_02_tokenization\scripts\tokenize_full_corpus.py --max-shards 10
+```
+
+Each finished shard is written to a temporary file, validated, then atomically
+renamed and checkpointed. An interrupted in-progress shard is safely
+reprocessed on resume; completed shards are checked and skipped. Full
+tokenized data and detailed progress remain local and are excluded from Git.
+The aggregate run report is written to
+`experiments/tokenization/full_corpus/tokenization_bpe8192_full_report.json`.
+
 ## Reproduction
 
 From the repository root, with the project `.venv` active:
