@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 from torch import nn
+from rapidfuzz.distance import Levenshtein
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -27,6 +28,9 @@ OUTPUT_DIR = PROJECT_ROOT / "experiments" / "module_03_segmentation" / "characte
 PAD, BOS, EOS, UNK = "<pad>", "<bos>", "<eos>", "<unk>"
 SPECIALS = [PAD, BOS, EOS, UNK]
 SEED = 42
+MAX_OUTPUT_EXTRA_CHARS = 32
+MAX_CHARACTER_EDIT_RATIO = 0.30
+ROUTE_TO_CHUNKS_ABOVE_LENGTH = 55
 
 
 def read_dataset(path, max_length):
@@ -183,15 +187,17 @@ def greedy_decode(model, source, vocab, tokens, max_length):
     memory, source_pad = model.encode(source, pad_id)
     generated = torch.full((source.size(0), 1), bos_id, device=source.device, dtype=torch.long)
     finished = torch.zeros(source.size(0), device=source.device, dtype=torch.bool)
+    source_lengths = source.ne(pad_id).sum(dim=1) - 1  # Do not count the source EOS.
+    output_limits = (source_lengths + MAX_OUTPUT_EXTRA_CHARS).clamp(min=1, max=max_length)
     with torch.no_grad():
-        for _ in range(max_length + 1):
+        for step in range(max_length):
             logits = model.decode(generated, memory, source_pad, pad_id)[:, -1, :]
             logits[:, pad_id] = -1e4
             logits[:, bos_id] = -1e4
             next_id = logits.argmax(-1)
             next_id = torch.where(finished, torch.full_like(next_id, eos_id), next_id)
             generated = torch.cat([generated, next_id[:, None]], dim=1)
-            finished |= next_id.eq(eos_id)
+            finished |= next_id.eq(eos_id) | ((step + 1) >= output_limits)
             if bool(finished.all()):
                 break
     results = []
@@ -226,18 +232,56 @@ def evaluate(model, rows, vocab, tokens, batch_size, device, max_length):
         if row["output"] not in grouped[row["input"]]:
             grouped[row["input"]].append(row["output"])
         row_counts[row["input"]] += 1
-    unique_inputs = [{"input": key, "output": values[0]} for key, values in grouped.items()]
+    short_inputs = [
+        {"input": key, "output": values[0]}
+        for key, values in grouped.items()
+        if len(key) <= ROUTE_TO_CHUNKS_ABOVE_LENGTH
+    ]
+    long_inputs = [key for key in grouped if len(key) > ROUTE_TO_CHUNKS_ABOVE_LENGTH]
     predictions = {}
-    for source, _, _, selected in make_batches(unique_inputs, vocab, batch_size, False, random.Random(SEED)):
+    chunk_fallbacks = {}
+    for source, _, _, selected in make_batches(short_inputs, vocab, batch_size, False, random.Random(SEED)):
         source = source.to(device)
         decoded = greedy_decode(model, source, vocab, tokens, max_length)
         predictions.update({row["input"]: prediction for row, prediction in zip(selected, decoded)})
+
+    chunk_rows = []
+    for sentence in long_inputs:
+        for chunk_index, chunk in enumerate(sentence.split()):
+            chunk_rows.append({"input": chunk, "output": "", "sentence": sentence,
+                               "chunk_index": chunk_index})
+    decoded_chunks = defaultdict(list)
+    for source, _, _, selected in make_batches(chunk_rows, vocab, batch_size, False, random.Random(SEED)):
+        decoded = greedy_decode(model, source.to(device), vocab, tokens, max_length)
+        for row, prediction in zip(selected, decoded):
+            source_chars = row["input"]
+            predicted_chars = "".join(prediction.split())
+            ratio = Levenshtein.distance(source_chars, predicted_chars) / max(len(source_chars), 1)
+            fallback = ratio > MAX_CHARACTER_EDIT_RATIO
+            decoded_chunks[row["sentence"]].append(
+                (row["chunk_index"], source_chars if fallback else prediction, fallback)
+            )
+    for sentence, chunks in decoded_chunks.items():
+        chunks.sort(key=lambda item: item[0])
+        predictions[sentence] = " ".join(item[1] for item in chunks)
+        chunk_fallbacks[sentence] = any(item[2] for item in chunks)
     exact = 0
     p_sum = r_sum = f_sum = 0.0
     total_gold_words = total_pred_words = total_overlap = 0
+    fallback_count = 0
     prediction_rows = []
     for source, references in grouped.items():
-        prediction = predictions[source]
+        raw_prediction = predictions[source]
+        source_chars = "".join(source.split())
+        predicted_chars = "".join(raw_prediction.split())
+        char_error_ratio = Levenshtein.distance(source_chars, predicted_chars) / max(len(source_chars), 1)
+        if source in chunk_fallbacks:
+            fallback_applied = chunk_fallbacks[source]
+            prediction = raw_prediction
+        else:
+            fallback_applied = char_error_ratio > MAX_CHARACTER_EDIT_RATIO
+            prediction = source if fallback_applied else raw_prediction
+        fallback_count += int(fallback_applied)
         precision, recall, f1, is_exact, selected_reference = token_scores(prediction, references)
         exact += int(is_exact)
         p_sum += precision
@@ -250,7 +294,9 @@ def evaluate(model, rows, vocab, tokens, batch_size, device, max_length):
         total_overlap += sum((pred_tokens & ref_tokens).values())
         prediction_rows.append({"input": source, "prediction": prediction,
                                 "references_json": json.dumps(references, ensure_ascii=False),
-                                "source_rows": row_counts[source], "exact_match_any_reference": is_exact})
+                                "source_rows": row_counts[source], "exact_match_any_reference": is_exact,
+                                "fallback_applied": fallback_applied,
+                                "char_edit_ratio": char_error_ratio})
     n = max(len(grouped), 1)
     micro_p = total_overlap / total_pred_words if total_pred_words else 0.0
     micro_r = total_overlap / total_gold_words if total_gold_words else 0.0
@@ -262,6 +308,7 @@ def evaluate(model, rows, vocab, tokens, batch_size, device, max_length):
         "micro_word_f1": 2 * micro_p * micro_r / (micro_p + micro_r) if micro_p + micro_r else 0.0,
         "perfect_sentence_match_any_reference": exact / n,
         "multiple_reference_inputs": sum(len(v) > 1 for v in grouped.values()),
+        "fallback_count": fallback_count,
     }, prediction_rows
 
 
@@ -368,6 +415,10 @@ def main():
                                 "test_unique_inputs_with_train_overlap": len({r['input'] for r in leak_rows}),
                                 "leakage_free_test": leakage_free},
               "metric_definition": "Per unique input, maximize token multiset precision/recall/F1 over available gold references; report macro and micro word scores and exact sentence match.",
+              "decoding_safety": {"route_to_chunk_decoding_above_input_characters": ROUTE_TO_CHUNKS_ABOVE_LENGTH,
+                                  "max_output_extra_characters": MAX_OUTPUT_EXTRA_CHARS,
+                                  "identity_fallback_char_edit_ratio": MAX_CHARACTER_EDIT_RATIO,
+                                  "fallbacks": "If generated text differs from input by more than the threshold after removing whitespace, return the original input."},
               "limits": ["Original test split is retained for benchmark compatibility.",
                          "The CSV has known train/test input overlaps; leakage-free test metrics are also reported.",
                          "This is a character Transformer baseline, not the full TransLIST lattice/PRCP architecture."]}

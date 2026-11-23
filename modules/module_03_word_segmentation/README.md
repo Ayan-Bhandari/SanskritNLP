@@ -59,10 +59,26 @@ CUDA-enabled PyTorch build for training to use the NVIDIA GPU; a discrete GPU
 being present does not make a CPU-only PyTorch install use it automatically.
 The script detects the available device and records it in the report.
 
+For a dev-only error report and up to 200 difficult examples for manual review:
+
+```powershell
+python modules\module_03_word_segmentation\scripts\analyze_predictions.py `
+  --input "C:\path\to\Hackathon_dcs.csv" --split dev
+```
+
+The dev analysis identified a long-input failure mode. Current inference uses
+the full-sentence model for inputs up to 55 characters and separately decodes
+existing whitespace-delimited chunks for longer inputs. It caps generated
+output at source length plus 32 characters and returns the unchanged input for
+a chunk/sentence whose non-whitespace character edit ratio exceeds 30%. These
+limits were chosen on dev; the original source text is always preserved.
+
 ## Limitations and follow-on work
 
 - The current system is a compact baseline; reproducing full TransLIST would
   require its lattice candidates, linguistic resources, and PRCP inference.
+- Train a chunk-aware model (rather than relying only on inference-time chunk
+  routing) and evaluate it on dev before touching the frozen test set.
 - Review ambiguous annotations and error cases before choosing a canonical
   output policy or claiming production accuracy.
 - Keep the standard test result and the leakage-filtered result separate in
@@ -71,30 +87,37 @@ The script detects the available device and records it in the report.
 
 ## Completed run
 
-The full train/dev/test run completed on the RTX 4050 using CUDA-enabled
-PyTorch. It trained on all **77,930 unique train input/target pairs** for 12
-epochs, selected epoch 12 by dev token loss, and excluded no rows for length.
-Exact duplicate input/target pairs were removed from the derived training and
-evaluation views; the source CSV remains unchanged. Alternative outputs were
-retained as references.
+The model was trained on the RTX 4050 using CUDA-enabled PyTorch on all
+**77,930 unique train input/target pairs** for 12 epochs, selecting epoch 12 by
+dev token loss. No rows were excluded for length. Exact duplicate
+input/target pairs were removed from the derived training and evaluation views;
+the source CSV remains unchanged. Alternative outputs were retained as
+references. The guarded decoder below uses the same checkpoint and adds the
+dev-selected long-input route and identity fallback; it does not retrain.
 
-| Split / metric | Unchanged input baseline | Character Transformer |
+| Split / metric | Unchanged input baseline | Transformer with guarded decoding |
 |---|---:|---:|
-| Dev macro word F1 | 0.473 | 0.771 |
-| Dev exact sentence match | 7.67% | 36.70% |
-| Test macro word F1 | 0.539 | 0.839 |
-| Test exact sentence match | 6.43% | 42.73% |
+| Dev macro word F1 | 0.473 | 0.780 |
+| Dev exact sentence match | 7.67% | 37.09% |
+| Test macro word F1 | 0.539 | 0.843 |
+| Test exact sentence match | 6.43% | 43.07% |
 
 Only 6 test inputs overlap the training inputs. On the remaining **9,752**
-test inputs, macro word F1 was **0.839** and exact sentence match was
-**42.73%**, nearly unchanged from the full test score. Metrics score each
+test inputs, macro word F1 was **0.843** and exact sentence match was
+**43.07%**, nearly unchanged from the full test score. Metrics score each
 unique input once and accept any distinct gold output available for that input.
+
+The dev error report shows macro word F1 of 0.715 for 61–90 character inputs
+and 0.748 for inputs longer than 90; exact sentence match is 10.8% and 3.1%
+for those groups. The long-input route improves those groups substantially,
+but long-context segmentation remains a major weakness.
 
 The model is a compact character Transformer baseline, not a reproduction of
 the full TransLIST architecture. It demonstrates strong improvement over the
-unchanged-input baseline, but the 42.7% exact sentence match leaves meaningful
-errors, especially in sandhi and ambiguous word boundaries. Keep the model
-results labeled as this project’s baseline and do not claim direct
+unchanged-input baseline, but the 43.1% exact sentence match leaves meaningful
+errors, especially in sandhi and long/ambiguous inputs. Module 3’s baseline and
+inference path are implemented, but this is not production-ready accuracy.
+Keep results labeled as this project’s baseline and do not claim direct
 comparability with TransLIST.
 
 The trained checkpoint is stored locally at

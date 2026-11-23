@@ -10,7 +10,7 @@ project conventions stay at the repository root.
 |---|---|---|
 | [Module 1: Text normalization](module_01_normalization/README.md) | Sanskrit Unicode/whitespace normalization, corpus preparation, and OCR correction research | Normalization complete for the pinned Sansar `default/train` split; OCR model pilot unsuccessful |
 | [Module 2: Tokenization](module_02_tokenization/README.md) | Compare character, whitespace, and subword token units for Sanskrit | Data audit and whitespace/code-point/SentencePiece baselines complete; CPU only so far |
-| [Module 3: Word segmentation](module_03_word_segmentation/README.md) | Restore Sanskrit word boundaries and sandhi-aware segmentation | Hackathon DCS audit, full character Transformer baseline, inference script, and held-out evaluation complete |
+| [Module 3: Word segmentation](module_03_word_segmentation/README.md) | Restore Sanskrit word boundaries and sandhi-aware segmentation | Hackathon DCS audit, trained baseline, dev-selected long-input routing, safety fallback, and held-out evaluation complete; production accuracy work remains |
 
 ## Adding a module
 
